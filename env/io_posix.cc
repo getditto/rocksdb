@@ -1186,15 +1186,20 @@ IOStatus PosixMmapFile::Flush(const IOOptions& /*opts*/,
 
 IOStatus PosixMmapFile::Sync(const IOOptions& /*opts*/,
                              IODebugContext* /*dbg*/) {
-#ifdef HAVE_FULLFSYNC
+#if defined(OS_MACOSX) && defined(F_BARRIERFSYNC)
+  if (::fcntl(fd_, F_BARRIERFSYNC) < 0) {
+    return IOError("while fcntl(F_BARRIERFSYNC) mmapped file", filename_,
+                   errno);
+  }
+#elif defined(HAVE_FULLFSYNC)
   if (::fcntl(fd_, F_FULLFSYNC) < 0) {
     return IOError("while fcntl(F_FULLSYNC) mmapped file", filename_, errno);
   }
-#else   // HAVE_FULLFSYNC
+#else
   if (fdatasync(fd_) < 0) {
     return IOError("While fdatasync mmapped file", filename_, errno);
   }
-#endif  // HAVE_FULLFSYNC
+#endif
 
   return Msync();
 }
@@ -1404,15 +1409,19 @@ IOStatus PosixWritableFile::Flush(const IOOptions& /*opts*/,
 
 IOStatus PosixWritableFile::Sync(const IOOptions& /*opts*/,
                                  IODebugContext* /*dbg*/) {
-#ifdef HAVE_FULLFSYNC
+#if defined(OS_MACOSX) && defined(F_BARRIERFSYNC)
+  if (::fcntl(fd_, F_BARRIERFSYNC) < 0) {
+    return IOError("while fcntl(F_BARRIERFSYNC)", filename_, errno);
+  }
+#elif defined(HAVE_FULLFSYNC)
   if (::fcntl(fd_, F_FULLFSYNC) < 0) {
     return IOError("while fcntl(F_FULLFSYNC)", filename_, errno);
   }
-#else   // HAVE_FULLFSYNC
+#else
   if (fdatasync(fd_) < 0) {
     return IOError("While fdatasync", filename_, errno);
   }
-#endif  // HAVE_FULLFSYNC
+#endif
   return IOStatus::OK();
 }
 
@@ -1599,15 +1608,20 @@ IOStatus PosixRandomRWFile::Flush(const IOOptions& /*opts*/,
 
 IOStatus PosixRandomRWFile::Sync(const IOOptions& /*opts*/,
                                  IODebugContext* /*dbg*/) {
-#ifdef HAVE_FULLFSYNC
+#if defined(OS_MACOSX) && defined(F_BARRIERFSYNC)
+  if (::fcntl(fd_, F_BARRIERFSYNC) < 0) {
+    return IOError("while fcntl(F_BARRIERFSYNC) random rw file", filename_,
+                   errno);
+  }
+#elif defined(HAVE_FULLFSYNC)
   if (::fcntl(fd_, F_FULLFSYNC) < 0) {
     return IOError("while fcntl(F_FULLFSYNC) random rw file", filename_, errno);
   }
-#else   // HAVE_FULLFSYNC
+#else
   if (fdatasync(fd_) < 0) {
     return IOError("While fdatasync random read/write file", filename_, errno);
   }
-#endif  // HAVE_FULLFSYNC
+#endif
   return IOStatus::OK();
 }
 
