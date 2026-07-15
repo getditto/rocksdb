@@ -29,6 +29,14 @@ struct OptimisticTransactionOptions {
   // Should be set if the DB has a non-default comparator.
   // See comment in WriteBatchWithIndex constructor.
   const Comparator* cmp = BytewiseComparator();
+
+  // The default preserves the historical Transaction behavior. If false, keep
+  // every update in the in-memory WriteBatchWithIndex instead of searching for
+  // and replacing an earlier index entry for the same key. This reduces write
+  // staging work but uses one index entry per mutation and can make repeated-
+  // key reads more expensive. The underlying WriteBatch and conflict tracking
+  // are unchanged.
+  bool write_batch_index_overwrite = true;
 };
 
 enum class OccValidationPolicy {

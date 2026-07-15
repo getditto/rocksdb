@@ -5673,6 +5673,11 @@ void rocksdb_optimistictransaction_options_set_set_snapshot(
   opt->rep.set_snapshot = v;
 }
 
+void rocksdb_optimistictransaction_options_set_write_batch_index_overwrite(
+    rocksdb_optimistictransaction_options_t* opt, unsigned char v) {
+  opt->rep.write_batch_index_overwrite = v;
+}
+
 char* rocksdb_optimistictransactiondb_property_value(
     rocksdb_optimistictransactiondb_t* db, const char* propname) {
   std::string tmp;

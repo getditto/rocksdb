@@ -59,14 +59,17 @@ Status Transaction::CommitAndTryCreateSnapshot(
 
 TransactionBaseImpl::TransactionBaseImpl(
     DB* db, const WriteOptions& write_options,
-    const LockTrackerFactory& lock_tracker_factory)
+    const LockTrackerFactory& lock_tracker_factory,
+    bool write_batch_index_overwrite)
     : db_(db),
       dbimpl_(static_cast_with_check<DBImpl>(db)),
       write_options_(write_options),
       cmp_(GetColumnFamilyUserComparator(db->DefaultColumnFamily())),
       lock_tracker_factory_(lock_tracker_factory),
       start_time_(dbimpl_->GetSystemClock()->NowMicros()),
-      write_batch_(cmp_, 0, true, 0, write_options.protection_bytes_per_key),
+      write_batch_index_overwrite_(write_batch_index_overwrite),
+      write_batch_(cmp_, 0, write_batch_index_overwrite_, 0,
+                   write_options.protection_bytes_per_key),
       tracked_locks_(lock_tracker_factory_.Create()),
       commit_time_batch_(0 /* reserved_bytes */, 0 /* max_bytes */,
                          write_options.protection_bytes_per_key,
@@ -99,7 +102,8 @@ void TransactionBaseImpl::Clear() {
 }
 
 void TransactionBaseImpl::Reinitialize(DB* db,
-                                       const WriteOptions& write_options) {
+                                       const WriteOptions& write_options,
+                                       bool write_batch_index_overwrite) {
   Clear();
   ClearSnapshot();
   id_ = 0;
@@ -110,6 +114,14 @@ void TransactionBaseImpl::Reinitialize(DB* db,
   start_time_ = dbimpl_->GetSystemClock()->NowMicros();
   indexing_enabled_ = true;
   cmp_ = GetColumnFamilyUserComparator(db_->DefaultColumnFamily());
+  if (write_batch_index_overwrite_ != write_batch_index_overwrite) {
+    write_batch_index_overwrite_ = write_batch_index_overwrite;
+    write_batch_ = WriteBatchWithIndex(cmp_, 0, write_batch_index_overwrite_, 0,
+                                       write_options_.protection_bytes_per_key);
+    if (dbimpl_->allow_2pc()) {
+      InitWriteBatch();
+    }
+  }
   WriteBatchInternal::SetDefaultColumnFamilyTimestampSize(
       write_batch_.GetWriteBatch(), cmp_->timestamp_size());
   WriteBatchInternal::UpdateProtectionInfo(

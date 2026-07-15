@@ -2889,6 +2889,10 @@ extern ROCKSDB_LIBRARY_API void
 rocksdb_optimistictransaction_options_set_set_snapshot(
     rocksdb_optimistictransaction_options_t* opt, unsigned char v);
 
+extern ROCKSDB_LIBRARY_API void
+rocksdb_optimistictransaction_options_set_write_batch_index_overwrite(
+    rocksdb_optimistictransaction_options_t* opt, unsigned char v);
+
 extern ROCKSDB_LIBRARY_API char* rocksdb_optimistictransactiondb_property_value(
     rocksdb_optimistictransactiondb_t* db, const char* propname);
 

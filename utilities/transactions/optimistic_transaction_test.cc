@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "db/db_impl/db_impl.h"
 #include "db/db_test_util.h"
@@ -16,6 +17,7 @@
 #include "rocksdb/perf_context.h"
 #include "rocksdb/utilities/optimistic_transaction_db.h"
 #include "rocksdb/utilities/transaction.h"
+#include "rocksdb/utilities/write_batch_with_index.h"
 #include "test_util/sync_point.h"
 #include "test_util/testharness.h"
 #include "test_util/transaction_test_util.h"
@@ -102,6 +104,77 @@ TEST_P(OptimisticTransactionTest, SuccessTest) {
   ASSERT_OK(txn_db->Get(read_options, "foo", &value));
   ASSERT_EQ(value, "bar2");
 
+  delete txn;
+}
+
+TEST_P(OptimisticTransactionTest, WriteBatchIndexOverwriteMode) {
+  WriteOptions write_options;
+  ReadOptions read_options;
+  OptimisticTransactionOptions txn_options;
+
+  auto count_index_entries = [](Transaction* txn) {
+    std::unique_ptr<WBWIIterator> iter(txn->GetWriteBatch()->NewIterator());
+    size_t count = 0;
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+      ++count;
+    }
+    EXPECT_OK(iter->status());
+    return count;
+  };
+
+  Transaction* txn = txn_db->BeginTransaction(write_options, txn_options);
+  ASSERT_OK(txn->Put("key", "first"));
+  ASSERT_OK(txn->Put("key", "second"));
+  ASSERT_EQ(count_index_entries(txn), 1);
+  ASSERT_OK(txn->Rollback());
+
+  txn_options.write_batch_index_overwrite = false;
+  Transaction* reused =
+      txn_db->BeginTransaction(write_options, txn_options, txn);
+  ASSERT_EQ(reused, txn);
+  ASSERT_OK(txn->Put("key", "first"));
+  ASSERT_OK(txn->Delete("key"));
+  ASSERT_OK(txn->Put("key", "final"));
+  ASSERT_OK(txn->Put("other", "value"));
+  ASSERT_EQ(count_index_entries(txn), 4);
+
+  std::string value;
+  ASSERT_OK(txn->Get(read_options, "key", &value));
+  ASSERT_EQ(value, "final");
+
+  std::vector<Slice> keys = {"key", "other"};
+  std::vector<std::string> values;
+  const auto statuses = txn->MultiGet(read_options, keys, &values);
+  ASSERT_EQ(statuses.size(), 2);
+  ASSERT_OK(statuses[0]);
+  ASSERT_OK(statuses[1]);
+  ASSERT_EQ(values[0], "final");
+  ASSERT_EQ(values[1], "value");
+
+  std::unique_ptr<Iterator> iter(txn->GetIterator(read_options));
+  iter->SeekToFirst();
+  ASSERT_TRUE(iter->Valid());
+  ASSERT_EQ(iter->key(), "key");
+  ASSERT_EQ(iter->value(), "final");
+  iter->Next();
+  ASSERT_TRUE(iter->Valid());
+  ASSERT_EQ(iter->key(), "other");
+  ASSERT_EQ(iter->value(), "value");
+  iter->Next();
+  ASSERT_FALSE(iter->Valid());
+  ASSERT_OK(iter->status());
+
+  ASSERT_OK(txn->Commit());
+  ASSERT_OK(txn_db->Get(read_options, "key", &value));
+  ASSERT_EQ(value, "final");
+
+  txn_options.write_batch_index_overwrite = true;
+  reused = txn_db->BeginTransaction(write_options, txn_options, txn);
+  ASSERT_EQ(reused, txn);
+  ASSERT_OK(txn->Put("key", "third"));
+  ASSERT_OK(txn->Put("key", "fourth"));
+  ASSERT_EQ(count_index_entries(txn), 1);
+  ASSERT_OK(txn->Rollback());
   delete txn;
 }
 

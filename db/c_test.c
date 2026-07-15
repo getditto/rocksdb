@@ -3437,6 +3437,8 @@ int main(int argc, char** argv) {
     rocksdb_options_set_allow_concurrent_memtable_write(db_options, 1);
     otxn_db = rocksdb_optimistictransactiondb_open(db_options, dbname, &err);
     otxn_options = rocksdb_optimistictransaction_options_create();
+    rocksdb_optimistictransaction_options_set_write_batch_index_overwrite(
+        otxn_options, 0);
     rocksdb_transaction_t* txn1 = rocksdb_optimistictransaction_begin(
         otxn_db, woptions, otxn_options, NULL);
     rocksdb_transaction_t* txn2 = rocksdb_optimistictransaction_begin(

@@ -28,14 +28,16 @@ namespace ROCKSDB_NAMESPACE {
 class TransactionBaseImpl : public Transaction {
  public:
   TransactionBaseImpl(DB* db, const WriteOptions& write_options,
-                      const LockTrackerFactory& lock_tracker_factory);
+                      const LockTrackerFactory& lock_tracker_factory,
+                      bool write_batch_index_overwrite);
 
   ~TransactionBaseImpl() override;
 
   // Remove pending operations queued in this transaction.
   virtual void Clear();
 
-  void Reinitialize(DB* db, const WriteOptions& write_options);
+  void Reinitialize(DB* db, const WriteOptions& write_options,
+                    bool write_batch_index_overwrite);
 
   // Called before executing Put, Merge, Delete, and GetForUpdate.  If TryLock
   // returns non-OK, the Put/Merge/Delete/GetForUpdate will be failed.
@@ -343,6 +345,9 @@ class TransactionBaseImpl : public Transaction {
     explicit SavePoint(const LockTrackerFactory& lock_tracker_factory)
         : new_locks_(lock_tracker_factory.Create()) {}
   };
+
+  // Controls whether repeated writes replace the prior searchable index entry.
+  bool write_batch_index_overwrite_;
 
   // Records writes pending in this transaction
   WriteBatchWithIndex write_batch_;

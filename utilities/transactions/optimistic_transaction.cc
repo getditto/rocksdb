@@ -31,7 +31,8 @@ OptimisticTransaction::OptimisticTransaction(
     OptimisticTransactionDB* txn_db, const WriteOptions& write_options,
     const OptimisticTransactionOptions& txn_options)
     : TransactionBaseImpl(txn_db->GetBaseDB(), write_options,
-                          PointLockTrackerFactory::Get()),
+                          PointLockTrackerFactory::Get(),
+                          txn_options.write_batch_index_overwrite),
       txn_db_(txn_db) {
   Initialize(txn_options);
 }
@@ -46,7 +47,8 @@ void OptimisticTransaction::Initialize(
 void OptimisticTransaction::Reinitialize(
     OptimisticTransactionDB* txn_db, const WriteOptions& write_options,
     const OptimisticTransactionOptions& txn_options) {
-  TransactionBaseImpl::Reinitialize(txn_db->GetBaseDB(), write_options);
+  TransactionBaseImpl::Reinitialize(txn_db->GetBaseDB(), write_options,
+                                    txn_options.write_batch_index_overwrite);
   Initialize(txn_options);
 }
 

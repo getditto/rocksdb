@@ -42,7 +42,8 @@ PessimisticTransaction::PessimisticTransaction(
     : TransactionBaseImpl(
           txn_db->GetRootDB(), write_options,
           static_cast_with_check<PessimisticTransactionDB>(txn_db)
-              ->GetLockTrackerFactory()),
+              ->GetLockTrackerFactory(),
+          true /* write_batch_index_overwrite */),
       txn_db_impl_(nullptr),
       expiration_time_(0),
       txn_id_(0),
@@ -125,7 +126,8 @@ void PessimisticTransaction::Reinitialize(
   if (!name_.empty() && txn_state_ != COMMITTED) {
     txn_db_impl_->UnregisterTransaction(this);
   }
-  TransactionBaseImpl::Reinitialize(txn_db->GetRootDB(), write_options);
+  TransactionBaseImpl::Reinitialize(txn_db->GetRootDB(), write_options,
+                                    true /* write_batch_index_overwrite */);
   Initialize(txn_options);
 }
 
